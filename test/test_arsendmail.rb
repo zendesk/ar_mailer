@@ -436,6 +436,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
   end
 
   def test_deliver_auth_error_twice
+    email = Email.create :mail => 'body', :to => 'to', :from => 'from'
     Net::SMTP.on_start do
       e = Net::SMTPAuthenticationError.new 'try again'
       e.set_backtrace %w[one two three]
@@ -446,7 +447,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     out, err = util_capture do
       assert_raise Net::SMTPAuthenticationError do
-        @sm.deliver []
+        @sm.deliver [email]
       end
     end
 
@@ -454,6 +455,20 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal "authentication error, giving up: try again\n", err
   end
 
+  def test_deliver_no_auth_without_emails
+    Net::SMTP.on_start do
+      e = Net::SMTPAuthenticationError.new 'no throw'
+      e.set_backtrace %w[one two three]
+      raise e
+    end
+
+    out, err = util_capture do
+      @sm.deliver []
+    end
+    assert_equal '', err, "authentication attempt without any emails to send"
+    assert_equal 0, Net::SMTP.deliveries.length
+  end
+  
   def test_deliver_4xx_error
     Net::SMTP.on_send_message do
       e = Net::SMTPSyntaxError.new 'try again'

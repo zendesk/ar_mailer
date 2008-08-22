@@ -436,6 +436,7 @@ end
   # Delivers +emails+ to ActionMailer's SMTP server and destroys them.
 
   def deliver(emails)
+    return if emails.empty?
     user = smtp_settings[:user] || smtp_settings[:user_name]
     Net::SMTP.start smtp_settings[:address], smtp_settings[:port],
                     smtp_settings[:domain], user,
