@@ -448,8 +448,8 @@ end
         begin
           res = smtp.send_message email.mail, email.from, email.to
           email.destroy
-          if email.method_exists?(:context)
-            log "sent email %011d - %s from %s to %s: %p" % [email.id, email.context, email.from, email.to, res]
+          if email[:context]
+            log "sent email %011d [%s] from %s to %s: %p" % [email.id, email.context, email.from, email.to, res]
           else
             log "sent email %011d from %s to %s: %p" % [email.id, email.from, email.to, res]
           end
