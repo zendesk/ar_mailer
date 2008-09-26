@@ -43,6 +43,21 @@ See ar_sendmail -h for options to ar_sendmail.
 NOTE: You may need to delete an smtp_tls.rb file if you have one lying
 around.  ar_mailer supplies it own.
 
+=== Getting context aware logging
+
+If you want to log some extra information that you can use to tie a specific send email to
+something in your application, do this:
+
+1. Add a +context+ column to your emails table, eg.:
+
+  add_column :emails, :context, :string
+  
+2. Set the information you want ar_sendmail to log alongside the message-id in your mailer class:
+
+  headers(ActionMailer::ARMailer.context_header => 'Hello there')
+
+This will print 'Hello there' in the line that also contains the message-id of the sent email.
+
 === init.d/rc.d scripts
 
 For Linux both script and demo config files are in share/linux. 

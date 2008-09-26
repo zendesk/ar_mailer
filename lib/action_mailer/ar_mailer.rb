@@ -83,14 +83,27 @@ class ActionMailer::ARMailer < ActionMailer::Base
     @@email_class = klass
   end
 
+  @@context_header = 'X-Delivery-Context'
+
+  def self.context_header
+    @@context_header
+  end
+    
   ##
   # Adds +mail+ to the Email table.  Only the first From address for +mail+ is
   # used.
 
   def perform_delivery_activerecord(mail)
     mail.destinations.each do |destination|
-      @@email_class.create :mail => mail.encoded, :to => destination,
-                           :from => mail.from.first
+      # If the email has the context header set, assume that the caller added a context column
+      if mail.key?(context_header) && !mail[context_header].body.strip.blank?
+        @@email_class.create(
+          :mail => mail.encoded, :to => destination, 
+          :from => mail.from.first, :context => mail[context_header].body.strip
+        )
+      else
+        @@email_class.create(:mail => mail.encoded, :to => destination, :from => mail.from.first)
+      end
     end
   end
 

@@ -448,8 +448,11 @@ end
         begin
           res = smtp.send_message email.mail, email.from, email.to
           email.destroy
-          log "sent email %011d from %s to %s: %p" %
-                [email.id, email.from, email.to, res]
+          if email.method_exists?(:context)
+            log "sent email %011d - %s from %s to %s: %p" % [email.id, email.context, email.from, email.to, res]
+          else
+            log "sent email %011d from %s to %s: %p" % [email.id, email.from, email.to, res]
+          end
         rescue Net::SMTPFatalError => e
           log "5xx error sending email %d, removing from queue: %p(%s):\n\t%s" %
                 [email.id, e.message, e.class, e.backtrace.join("\n\t")]
@@ -516,7 +519,7 @@ end
 
   def log(message)
     $stderr.puts message if @verbose
-    ActionMailer::Base.logger.info "ar_sendmail: #{message}"
+    ActionMailer::Base.logger.info "ar_sendmail #{Time.now}: #{message}"
   end
 
   ##
