@@ -99,7 +99,7 @@ class ActionMailer::ARMailer < ActionMailer::Base
       if @@context_header && mail.key?(@@context_header) && !mail[@@context_header].body.strip.blank?
         @@email_class.create(
           :mail => mail.encoded, :to => destination, 
-          :from => mail.from.first, :context => mail[context_header].body.strip
+          :from => mail.from.first, :context => mail[@@context_header].body.strip
         )
       else
         @@email_class.create(:mail => mail.encoded, :to => destination, :from => mail.from.first)
