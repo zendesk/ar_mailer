@@ -105,7 +105,7 @@ class Email
 
   START = Time.parse 'Thu Aug 10 2006 11:19:48'
 
-  attr_accessor :from, :to, :mail, :last_send_attempt, :created_on, :id
+  attr_accessor :from, :to, :mail, :last_send_attempt, :created_on, :id, :context
 
   @records = []
   @id = 0
@@ -114,7 +114,7 @@ class Email
 
   def self.create(record)
     record = new record[:from], record[:to], record[:mail],
-                 record[:last_send_attempt]
+                 record[:last_send_attempt], record[:context]
     records << record
     return record
   end
@@ -147,13 +147,14 @@ class Email
     records.clear
   end
 
-  def initialize(from, to, mail, last_send_attempt = nil)
+  def initialize(from, to, mail, last_send_attempt = nil, context = nil)
     @from = from
     @to = to
     @mail = mail
     @id = self.class.id += 1
     @created_on = START + @id
     @last_send_attempt = last_send_attempt || 0
+    @context = context
   end
 
   def destroy

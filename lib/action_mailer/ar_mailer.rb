@@ -96,10 +96,10 @@ class ActionMailer::ARMailer < ActionMailer::Base
   def perform_delivery_activerecord(mail)
     mail.destinations.each do |destination|
       # If the email has the context header set, assume that the caller added a context column
-      if @@context_header && mail.key?(@@context_header) && !mail[@@context_header].body.strip.blank?
+      if @@context_header && mail.header_string(@@context_header)
         @@email_class.create(
           :mail => mail.encoded, :to => destination, 
-          :from => mail.from.first, :context => mail[@@context_header].body.strip
+          :from => mail.from.first, :context => mail.header_string(@@context_header)
         )
       else
         @@email_class.create(:mail => mail.encoded, :to => destination, :from => mail.from.first)

@@ -1,6 +1,12 @@
 = ar_mailer
 
-A two-phase delivery agent for ActionMailer
+A two-phase delivery agent for ActionMailer. 
+
+This fork allows you to add some context to the ar_mailer log, i.e. you can track "lost emails" such that when a customer complains of a missing email, you are able to find out what "identifier" in your system became what SMTP message-id, and continue tracking to the SMTP server logs.
+
+This fork also logs in its own log file rather than using the Rails logger.
+
+This fork is based on the fork by adzap (http://github.com/adzap/ar_mailer/tree/master) and includes the connectivity patches from gefilte (http://github.com/gefilte/ar_mailer/tree/master)
 
 Rubyforge Project:
 
@@ -34,7 +40,7 @@ First, if you haven't already
 
 Then
 
-  $ sudo gem install adzap-ar_mailer
+  $ sudo gem install zendesk-ar_mailer
 
 See ActionMailer::ARMailer for instructions on converting to ARMailer.
 
@@ -43,7 +49,7 @@ See ar_sendmail -h for options to ar_sendmail.
 NOTE: You may need to delete an smtp_tls.rb file if you have one lying
 around.  ar_mailer supplies it own.
 
-=== Getting context aware logging
+=== Getting context aware logging (this fork)
 
 If you want to log some extra information that you can use to tie a specific send email to
 something in your application, do this:
@@ -54,9 +60,11 @@ something in your application, do this:
   
 2. Set the information you want ar_sendmail to log alongside the message-id in your mailer class:
 
-  headers(ActionMailer::ARMailer.context_header => 'Hello there')
+  headers('X-Delivery-Context' => 'Hello there')
 
-This will print 'Hello there' in the line that also contains the message-id of the sent email.
+This will print 'Hello there' in the line that also contains the message-id of the sent email, like so:
+
+ar_sendmail Fri Oct 17 12:04:58 +0000 2008: sent email 00000579421 [Hello there] from someone@somewhere.com to someone.else@somewhere.else.com: "250 OK id=1Kqo4g-0006Nx-MP\n"
 
 === init.d/rc.d scripts
 
@@ -68,3 +76,5 @@ the config file /etc/ar_sendmail.conf in place before starting.
 
 For FreeBSD or NetBSD script is share/bsd/ar_sendmail. This is old and does not
 support the config file unless someone wants to submit a patch.
+
+Alternatively, use a monitoring solution like monit or god, or google: cron @reboot

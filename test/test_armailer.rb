@@ -12,7 +12,9 @@ class Mailer < ActionMailer::ARMailer
     def @mail.encoded() 'email' end
     def @mail.from() ['nobody@example.com'] end
     def @mail.destinations() %w[user1@example.com user2@example.com] end
-    def @mail.key?(header_name) end  
+    def @mail.header_string(header_name, default = nil) 
+      default
+    end  
   end
 
 end

@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = %q{ar_mailer}
-  s.version = "1.4.5"
+  s.version = "1.4.6"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Eric Hodel"]
@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.email = %q{drbrain@segment7.net}
   s.executables = ["ar_sendmail"]
   s.extra_rdoc_files = ["History.txt", "LICENSE.txt", "Manifest.txt", "README.txt"]
-  s.files = ["History.txt","LICENSE.txt", "Manifest.txt", "README.txt", "Rakefile", "bin/ar_sendmail", "lib/action_mailer/ar_mailer.rb", "lib/action_mailer/ar_sendmail.rb", "lib/smtp_tls.rb", "share/bsd/ar_sendmail", "share/linux/ar_sendmail", "share/linux/ar_sendmail.conf", "test/action_mailer.rb", "test/test_armailer.rb", "test/test_arsendmail.rb"]
+  s.files = ["History.txt","LICENSE.txt", "Manifest.txt", "README.txt", "Rakefile", "bin/ar_sendmail", "lib/action_mailer/ar_mailer.rb", "lib/action_mailer/ar_sendmail.rb", "lib/ar_sendmail_logger.rb", "lib/smtp_tls.rb", "share/bsd/ar_sendmail", "share/linux/ar_sendmail", "share/linux/ar_sendmail.conf", "test/action_mailer.rb", "test/test_armailer.rb", "test/test_arsendmail.rb"]
   s.has_rdoc = true
   s.homepage = %q{http://seattlerb.org/ar_mailer}
   s.rdoc_options = ["--main", "README.txt"]

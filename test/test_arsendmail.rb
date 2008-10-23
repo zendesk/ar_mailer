@@ -362,7 +362,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     end
 
     assert_equal '', out
-    assert_equal "expired 1 emails from the queue\n", err
+    assert err.index("expired 1 emails from the queue\n")
     assert_equal 2, Email.records.length
 
     assert_equal [e1, e2], Email.records
@@ -383,6 +383,24 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 2, Email.records.length
   end
 
+  def test_context
+    email = Email.create :mail => 'body', :to => 'to', :from => 'from', :context => 'lemon'
+
+    out, err = util_capture do
+      @sm.deliver [email]
+    end
+
+    assert err.index('[lemon]')
+    
+    email = Email.create :mail => 'body', :to => 'to', :from => 'from', :context => ''
+
+    out, err = util_capture do
+      @sm.deliver [email]
+    end
+
+    assert !err.index('[]')
+  end    
+
   def test_deliver
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
@@ -396,7 +414,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 0, Net::SMTP.reset_called, 'Reset connection on SyntaxError'
 
     assert_equal '', out
-    assert_equal "sent email 00000000001 from from to to: \"queued\"\n", err
+    assert err.index("sent email 00000000001 from from to to: \"queued\"\n")
   end
 
   def test_deliver_auth_error
@@ -422,7 +440,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal [60], @sm.slept
 
     assert_equal '', out
-    assert_equal "authentication error, retrying: try again\n", err
+    assert err.index("authentication error, retrying: try again\n")
   end
 
   def test_deliver_auth_error_recover
@@ -452,7 +470,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     end
 
     assert_equal 2, @sm.failed_auth_count
-    assert_equal "authentication error, giving up: try again\n", err
+    assert err.index("authentication error, giving up: try again\n")
   end
 
   def test_deliver_no_auth_without_emails
@@ -490,7 +508,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 1, Net::SMTP.reset_called, 'Reset connection on SyntaxError'
 
     assert_equal '', out
-    assert_equal "error sending email 1: \"try again\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\n", err
+    assert err.index("error sending email 1: \"try again\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\n")
   end
 
   def test_deliver_5xx_error
@@ -513,7 +531,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 1, Net::SMTP.reset_called, 'Reset connection on SyntaxError'
 
     assert_equal '', out
-    assert_equal "5xx error sending email 1, removing from queue: \"unknown recipient\"(Net::SMTPFatalError):\n\tone\n\ttwo\n\tthree\n", err
+    assert err.index("5xx error sending email 1, removing from queue: \"unknown recipient\"(Net::SMTPFatalError):\n\tone\n\ttwo\n\tthree\n")
   end
 
   def test_deliver_errno_epipe
@@ -560,7 +578,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal [60], @sm.slept
 
     assert_equal '', out
-    assert_equal "server too busy, sleeping 60 seconds\n", err
+    assert err.index("server too busy, sleeping 60 seconds\n")
   end
 
   def test_deliver_syntax_error
@@ -586,7 +604,9 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_operator now, :<=, Email.records.first.last_send_attempt
 
     assert_equal '', out
-    assert_equal "error sending email 1: \"blah blah blah\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\nsent email 00000000002 from from to to: \"queued\"\n", err
+
+    assert err.index("error sending email 1: \"blah blah blah\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\n")
+    assert err.index("sent email 00000000002 from from to to: \"queued\"\n")
   end
 
   def test_deliver_timeout
@@ -610,7 +630,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 1, Net::SMTP.reset_called, 'Reset connection on Timeout'
 
     assert_equal '', out
-    assert_equal "error sending email 1: \"timed out\"(Timeout::Error):\n\tone\n\ttwo\n\tthree\n", err
+    assert err.index("error sending email 1: \"timed out\"(Timeout::Error):\n\tone\n\ttwo\n\tthree\n")
   end
 
   def test_do_exit
@@ -621,7 +641,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     end
 
     assert_equal '', out
-    assert_equal "caught signal, shutting down\n", err
+    assert err.index("caught signal, shutting down\n")
   end
 
   def test_log
@@ -629,7 +649,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
       @sm.log 'hi'
     end
 
-    assert_equal "hi\n", err
+    assert err.index("hi\n")
   end
 
   def test_find_emails
@@ -655,7 +675,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal emails, found_emails
 
     assert_equal '', out
-    assert_equal "found 3 emails to send\n", err
+    assert err.index("found 3 emails to send\n")
   end
 
   def test_smtp_settings

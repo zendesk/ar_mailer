@@ -1,6 +1,7 @@
 require 'optparse'
 require 'net/smtp'
 require 'smtp_tls'
+require 'ar_sendmail_logger'
 require 'rubygems'
 
 class Object # :nodoc:
@@ -54,7 +55,7 @@ class ActionMailer::ARSendmail
   ##
   # The version of ActionMailer::ARSendmail you are running.
 
-  VERSION = '1.4.4'
+  VERSION = '1.4.6'
 
   ##
   # Maximum number of times authentication will be consecutively retried
@@ -85,6 +86,8 @@ class ActionMailer::ARSendmail
   # ActiveRecord class that holds emails
 
   attr_reader :email_class
+  
+  attr_reader :logger
 
   ##
   # True if only one delivery attempt will be made per call to run
@@ -201,6 +204,7 @@ end
     options[:RailsEnv] = ENV['RAILS_ENV']
     options[:TableName] = 'Email'
     options[:Pidfile] = options[:Chdir] + '/log/ar_sendmail.pid'
+    options[:LogFile] = options[:Chdir] + '/log/ar_sendmail.log'
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: #{name} [options]"
@@ -252,6 +256,12 @@ end
               "Default: #{options[:Chdir]}#{options[:Pidfile]}", String) do |pidfile|
         options[:Pidfile] = pidfile
       end
+
+      opts.on("-l", "--logfile LOGFILE",
+              "Set the logfile location",
+              "Defailt: #{options[:Chdir]}#{options[:LogFile]}", String) do |logfile|
+        options[:LogFile] = logfile
+      end          
 
       opts.on(      "--mailq",
               "Display a list of emails waiting to be sent") do |mailq|
@@ -417,6 +427,7 @@ end
     @max_age = options[:MaxAge]
 
     @failed_auth_count = 0
+    @logger = ArSendmailLogger.new(options[:LogFile])
   end
 
   ##
@@ -449,7 +460,7 @@ end
         begin
           res = smtp.send_message email.mail, email.from, email.to
           email.destroy
-          if email.respond_to?(:context)
+          if email.respond_to?(:context) && email.context.to_s != ''
             log "sent email %011d [%s] from %s to %s: %p" % [email.id, email.context, email.from, email.to, res]
           else
             log "sent email %011d from %s to %s: %p" % [email.id, email.from, email.to, res]
@@ -519,8 +530,9 @@ end
   # Logs +message+ if verbose
 
   def log(message)
+    message = "ar_sendmail #{Time.now}: #{message}"
     $stderr.puts message if @verbose
-    ActionMailer::Base.logger.info "ar_sendmail #{Time.now}: #{message}"
+    logger.info(message)
   end
 
   ##
