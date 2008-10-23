@@ -204,7 +204,7 @@ end
     options[:RailsEnv] = ENV['RAILS_ENV']
     options[:TableName] = 'Email'
     options[:Pidfile] = options[:Chdir] + '/log/ar_sendmail.pid'
-    options[:LogFile] = options[:Chdir] + '/log/ar_sendmail.log'
+    options[:LogFile] = nil
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: #{name} [options]"
@@ -259,7 +259,7 @@ end
 
       opts.on("-l", "--logfile LOGFILE",
               "Set the logfile location",
-              "Defailt: #{options[:Chdir]}#{options[:LogFile]}", String) do |logfile|
+              "Default: #{options[:Chdir]}#{options[:LogFile]}", String) do |logfile|
         options[:LogFile] = logfile
       end          
 
@@ -427,7 +427,7 @@ end
     @max_age = options[:MaxAge]
 
     @failed_auth_count = 0
-    @logger = ArSendmailLogger.new(options[:LogFile])
+    @logger = ArSendmailLogger.new(options[:LogFile] || options[:Chdir] + '/log/ar_sendmail.log')
   end
 
   ##
