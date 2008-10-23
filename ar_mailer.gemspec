@@ -1,4 +1,4 @@
-Gem::Specification.new do |s|
+Gem::Specification.new do |s| 
   s.name = %q{ar_mailer}
   s.version = "1.4.6"
 
