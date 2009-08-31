@@ -1,16 +1,8 @@
 require 'optparse'
 require 'net/smtp'
-require 'smtp_tls'
+require 'smtp_tls' unless Net::SMTP.instance_methods.include?("enable_starttls_auto")
 require 'ar_sendmail_logger'
 require 'rubygems'
-
-class Object # :nodoc:
-  unless respond_to? :path2class then
-    def self.path2class(path)
-      path.split(/::/).inject self do |k,n| k.const_get n end
-    end
-  end
-end
 
 ##
 # Hack in RSET
@@ -30,8 +22,6 @@ class SMTP # :nodoc:
 end
 end
 
-module ActionMailer; end # :nodoc:
-
 ##
 # ActionMailer::ARSendmail delivers email from the email table to the
 # SMTP server configured in your application's config/environment.rb.
@@ -46,16 +36,15 @@ module ActionMailer; end # :nodoc:
 # The interesting options are:
 # * --daemon
 # * --mailq
-# * --create-migration
-# * --create-model
-# * --table-name
+
+module ActionMailer; end
 
 class ActionMailer::ARSendmail
 
   ##
   # The version of ActionMailer::ARSendmail you are running.
 
-  VERSION = '1.4.6'
+  VERSION = '2.1.5'
 
   ##
   # Maximum number of times authentication will be consecutively retried
@@ -81,13 +70,7 @@ class ActionMailer::ARSendmail
   # Be verbose
 
   attr_accessor :verbose
-
-  ##
-  # ActiveRecord class that holds emails
-
-  attr_reader :email_class
-  
-  attr_reader :logger
+ 
 
   ##
   # True if only one delivery attempt will be made per call to run
@@ -98,6 +81,11 @@ class ActionMailer::ARSendmail
   # Times authentication has failed
 
   attr_accessor :failed_auth_count
+  
+  ##
+  # Logs the value of this header for successfully sent emails
+  
+  attr_accessor :log_header
 
   @@pid_file = nil
 
@@ -110,50 +98,14 @@ class ActionMailer::ARSendmail
   end
 
   ##
-  # Creates a new migration using +table_name+ and prints it on stdout.
-
-  def self.create_migration(table_name)
-    require 'active_support'
-    puts <<-EOF
-class Add#{table_name.classify} < ActiveRecord::Migration
-  def self.up
-    create_table :#{table_name.tableize} do |t|
-      t.column :from, :string
-      t.column :to, :string
-      t.column :last_send_attempt, :integer, :default => 0
-      t.column :mail, :text
-      t.column :created_on, :datetime
-    end
-  end
-
-  def self.down
-    drop_table :#{table_name.tableize}
-  end
-end
-    EOF
-  end
-
-  ##
-  # Creates a new model using +table_name+ and prints it on stdout.
-
-  def self.create_model(table_name)
-    require 'active_support'
-    puts <<-EOF
-class #{table_name.classify} < ActiveRecord::Base
-end
-    EOF
-  end
-
-  ##
   # Prints a list of unsent emails and the last delivery attempt, if any.
   #
   # If ActiveRecord::Timestamp is not being used the arrival time will not be
   # known.  See http://api.rubyonrails.org/classes/ActiveRecord/Timestamp.html
   # to learn how to enable ActiveRecord::Timestamp.
 
-  def self.mailq(table_name)
-    klass = table_name.split('::').inject(Object) { |k,n| k.const_get n }
-    emails = klass.find :all
+  def self.mailq
+    emails = ActionMailer::Base.email_class.find :all
 
     if emails.empty? then
       puts "Mail queue is empty"
@@ -202,9 +154,7 @@ end
     options[:MaxAge] = 86400 * 7
     options[:Once] = false
     options[:RailsEnv] = ENV['RAILS_ENV']
-    options[:TableName] = 'Email'
     options[:Pidfile] = options[:Chdir] + '/log/ar_sendmail.pid'
-    options[:LogFile] = nil
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: #{name} [options]"
@@ -257,12 +207,6 @@ end
         options[:Pidfile] = pidfile
       end
 
-      opts.on("-l", "--logfile LOGFILE",
-              "Set the logfile location",
-              "Default: #{options[:Chdir]}#{options[:LogFile]}", String) do |logfile|
-        options[:LogFile] = logfile
-      end          
-
       opts.on(      "--mailq",
               "Display a list of emails waiting to be sent") do |mailq|
         options[:MailQ] = true
@@ -270,18 +214,6 @@ end
 
       opts.separator ''
       opts.separator 'Setup Options:'
-
-      opts.on(      "--create-migration",
-              "Prints a migration to add an Email table",
-              "to stdout") do |create|
-        options[:Migrate] = true
-      end
-
-      opts.on(      "--create-model",
-              "Prints a model for an Email ActiveRecord",
-              "object to stdout") do |create|
-        options[:Model] = true
-      end
 
       opts.separator ''
       opts.separator 'Generic Options:'
@@ -294,18 +226,21 @@ end
         options[:Chdir] = path
       end
 
+      opts.on(      "--log-file PATH_AND_FILE",
+              "Full path to the file the mailer should log to",
+              "Default: RAILS_ROOT/log/RAILS_ENV.log") do |log_file|
+        options[:LogFile] = log_file
+      end
+      
+      opts.on(      "--log-header SOME_HEADER",
+              "Logs the value of the specified header once an email gets sent") do |header|
+        options[:LogHeader] = header
+      end
+
       opts.on("-e", "--environment RAILS_ENV",
               "Set the RAILS_ENV constant",
               "Default: #{options[:RailsEnv]}") do |env|
         options[:RailsEnv] = env
-      end
-
-      opts.on("-t", "--table-name TABLE_NAME",
-              "Name of table holding emails",
-              "Used for both sendmail and",
-              "migration creation",
-              "Default: #{options[:TableName]}") do |name|
-        options[:TableName] = name
       end
 
       opts.on("-v", "--[no-]verbose",
@@ -319,23 +254,26 @@ end
         usage opts
       end
 
+      opts.on("--version", "Version of ARMailer") do
+        usage "ar_mailer #{VERSION} (adzap fork)"
+      end
+
       opts.separator ''
     end
 
     opts.parse! args
-
-    return options if options.include? :Migrate or options.include? :Model
 
     ENV['RAILS_ENV'] = options[:RailsEnv]
 
     Dir.chdir options[:Chdir] do
       begin
         require 'config/environment'
+        require 'action_mailer/ar_mailer'
       rescue LoadError
         usage opts, <<-EOF
 #{name} must be run from a Rails application's root to deliver email.
 #{Dir.pwd} does not appear to be a Rails application root.
-          EOF
+        EOF
       end
     end
 
@@ -348,14 +286,8 @@ end
   def self.run(args = ARGV)
     options = process_args args
 
-    if options.include? :Migrate then
-      create_migration options[:TableName]
-      exit
-    elsif options.include? :Model then
-      create_model options[:TableName]
-      exit
-    elsif options.include? :MailQ then
-      mailq options[:TableName]
+    if options.include? :MailQ then
+      mailq
       exit
     end
 
@@ -410,24 +342,22 @@ end
   # Valid options are:
   # <tt>:BatchSize</tt>:: Maximum number of emails to send per delay
   # <tt>:Delay</tt>:: Delay between deliver attempts
-  # <tt>:TableName</tt>:: Table name that stores the emails
   # <tt>:Once</tt>:: Only attempt to deliver emails once when run is called
   # <tt>:Verbose</tt>:: Be verbose.
 
   def initialize(options = {})
     options[:Delay] ||= 60
-    options[:TableName] ||= 'Email'
     options[:MaxAge] ||= 86400 * 7
 
     @batch_size = options[:BatchSize]
     @delay = options[:Delay]
-    @email_class = Object.path2class options[:TableName]
     @once = options[:Once]
     @verbose = options[:Verbose]
     @max_age = options[:MaxAge]
-
+    @log_header = options[:LogHeader]
+    
     @failed_auth_count = 0
-    @logger = ArSendmailLogger.new(options[:LogFile] || options[:Chdir] + '/log/ar_sendmail.log')
+    @logger = options[:LogFile] ? ARSendmailLogger.new(options[:LogFile]) : ActionMailer::Base.logger
   end
 
   ##
@@ -438,7 +368,7 @@ end
     return if @max_age == 0
     timeout = Time.now - @max_age
     conditions = ['last_send_attempt > 0 and created_on < ?', timeout]
-    mail = @email_class.destroy_all conditions
+    mail = ActionMailer::Base.email_class.destroy_all conditions
 
     log "expired #{mail.length} emails from the queue"
   end
@@ -447,29 +377,40 @@ end
   # Delivers +emails+ to ActionMailer's SMTP server and destroys them.
 
   def deliver(emails)
-    return if emails.empty?
-    user = smtp_settings[:user] || smtp_settings[:user_name]
-    Net::SMTP.start smtp_settings[:address], smtp_settings[:port],
-                    smtp_settings[:domain], user,
-                    smtp_settings[:password],
-                    smtp_settings[:authentication],
-                    smtp_settings[:tls] do |smtp|
+    settings = [
+      smtp_settings[:domain],
+      (smtp_settings[:user] || smtp_settings[:user_name]),
+      smtp_settings[:password],
+      smtp_settings[:authentication]
+    ]
+    
+    smtp = Net::SMTP.new(smtp_settings[:address], smtp_settings[:port])
+    if smtp.respond_to?(:enable_starttls_auto)
+      smtp.enable_starttls_auto unless smtp_settings[:tls] == false
+    else
+      settings << smtp_settings[:tls]
+    end
+
+    smtp.start(*settings) do |session|
       @failed_auth_count = 0
       until emails.empty? do
         email = emails.shift
         begin
-          res = smtp.send_message email.mail, email.from, email.to
-          email.destroy
-          if email.respond_to?(:context) && email.context.to_s != ''
-            log "sent email %011d [%s] from %s to %s: %p" % [email.id, email.context, email.from, email.to, res]
-          else
-            log "sent email %011d from %s to %s: %p" % [email.id, email.from, email.to, res]
+          res = session.send_message email.mail, email.from, email.to
+          hdr = ''
+          
+          if @log_header && email.mail =~ /#{@log_header}: (.+)/
+            hdr = "[#{$1.chomp}] "
           end
+
+          email.destroy
+          log "sent email %011d %sfrom %s to %s: %p" %
+                [email.id, hdr, email.from, email.to, res]
         rescue Net::SMTPFatalError => e
           log "5xx error sending email %d, removing from queue: %p(%s):\n\t%s" %
                 [email.id, e.message, e.class, e.backtrace.join("\n\t")]
           email.destroy
-          smtp.reset
+          session.reset
         rescue Net::SMTPServerBusy => e
           log "server too busy, sleeping #{@delay} seconds"
           sleep delay
@@ -479,7 +420,7 @@ end
           email.save rescue nil
           log "error sending email %d: %p(%s):\n\t%s" %
                 [email.id, e.message, e.class, e.backtrace.join("\n\t")]
-          smtp.reset
+          session.reset
         end
       end
     end
@@ -512,7 +453,7 @@ end
   def find_emails
     options = { :conditions => ['last_send_attempt < ?', Time.now.to_i - 300] }
     options[:limit] = batch_size unless batch_size.nil?
-    mail = @email_class.find :all, options
+    mail = ActionMailer::Base.email_class.find :all, options
 
     log "found #{mail.length} emails to send"
     mail
@@ -532,7 +473,7 @@ end
   def log(message)
     message = "ar_sendmail #{Time.now}: #{message}"
     $stderr.puts message if @verbose
-    logger.info(message)
+    @logger.info message
   end
 
   ##
@@ -546,7 +487,8 @@ end
       now = Time.now
       begin
         cleanup
-        deliver find_emails
+        emails = find_emails
+        deliver(emails) unless emails.empty?
       rescue ActiveRecord::Transactions::TransactionError
       end
       break if @once
@@ -567,4 +509,3 @@ end
   end
 
 end
-

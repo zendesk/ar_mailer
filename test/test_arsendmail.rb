@@ -1,8 +1,4 @@
-require 'test/unit'
-require 'action_mailer'
-require 'action_mailer/ar_sendmail'
-require 'rubygems'
-require 'test/zentest_assertions'
+require File.expand_path(File.dirname(__FILE__) + '/test_helper')
 
 class ActionMailer::ARSendmail
   attr_accessor :slept
@@ -12,7 +8,7 @@ class ActionMailer::ARSendmail
   end
 end
 
-class TestARSendmail < Test::Unit::TestCase
+class TestARSendmail < MiniTest::Unit::TestCase
 
   def setup
     ActionMailer::Base.reset
@@ -22,6 +18,8 @@ class TestARSendmail < Test::Unit::TestCase
     @sm = ActionMailer::ARSendmail.new
     @sm.verbose = true
 
+    Net::SMTP.clear_on_start
+
     @include_c_e = ! $".grep(/config\/environment.rb/).empty?
     $" << 'config/environment.rb' unless @include_c_e
   end
@@ -30,43 +28,8 @@ class TestARSendmail < Test::Unit::TestCase
     $".delete 'config/environment.rb' unless @include_c_e
   end
 
-  def test_class_create_migration
-    out, = util_capture do
-      ActionMailer::ARSendmail.create_migration 'Mail'
-    end
-
-    expected = <<-EOF
-class AddMail < ActiveRecord::Migration
-  def self.up
-    create_table :mail do |t|
-      t.column :from, :string
-      t.column :to, :string
-      t.column :last_send_attempt, :integer, :default => 0
-      t.column :mail, :text
-      t.column :created_on, :datetime
-    end
-  end
-
-  def self.down
-    drop_table :mail
-  end
-end
-    EOF
-
-    assert_equal expected, out
-  end
-
-  def test_class_create_model
-    out, = util_capture do
-      ActionMailer::ARSendmail.create_model 'Mail'
-    end
-
-    expected = <<-EOF
-class Mail < ActiveRecord::Base
-end
-    EOF
-
-    assert_equal expected, out
+  def strip_log_prefix(line)
+    line.gsub(/ar_sendmail .+ \d{4}: /,'')
   end
 
   def test_class_mailq
@@ -76,11 +39,11 @@ end
                  :mail => 'body1'
     last = Email.create :from => nobody, :to => 'recip@h2.example.com',
                         :mail => 'body2'
+    last_attempt_time = Time.parse('Thu Aug 10 2006 11:40:05')
+    last.last_send_attempt = last_attempt_time.to_i
 
-    last.last_send_attempt = Time.parse('Thu Aug 10 2006 11:40:05').to_i
-
-    out, err = util_capture do
-      ActionMailer::ARSendmail.mailq 'Email'
+    out, err = capture_io do
+      ActionMailer::ARSendmail.mailq
     end
 
     expected = <<-EOF
@@ -98,13 +61,13 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 -- 0 Kbytes in 3 Requests.
     EOF
 
-    expected = expected % Time.new.strftime('%z')
+    expected = expected % last_attempt_time.strftime('%z')
     assert_equal expected, out
   end
 
   def test_class_mailq_empty
-    out, err = util_capture do
-      ActionMailer::ARSendmail.mailq 'Email'
+    out, err = capture_io do
+      ActionMailer::ARSendmail.mailq
     end
 
     assert_equal "Mail queue is empty\n", out
@@ -114,17 +77,14 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     @sm = ActionMailer::ARSendmail.new
 
     assert_equal 60, @sm.delay
-    assert_equal Email, @sm.email_class
     assert_equal nil, @sm.once
     assert_equal nil, @sm.verbose
     assert_equal nil, @sm.batch_size
 
     @sm = ActionMailer::ARSendmail.new :Delay => 75, :Verbose => true,
-                                       :TableName => 'Object', :Once => true,
-                                       :BatchSize => 1000
+                                       :Once => true, :BatchSize => 1000
 
     assert_equal 75, @sm.delay
-    assert_equal Object, @sm.email_class
     assert_equal true, @sm.once
     assert_equal true, @sm.verbose
     assert_equal 1000, @sm.batch_size
@@ -155,7 +115,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     argv = %w[-c /nonexistent]
     
-    out, err = util_capture do
+    out, err = capture_io do
       assert_raises SystemExit do
         ActionMailer::ARSendmail.process_args argv
       end
@@ -218,7 +178,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
   def test_class_parse_args_mailq
     options = ActionMailer::ARSendmail.process_args []
-    deny_includes options, :MailQ
+    refute_includes options, :MailQ
 
     argv = %w[--mailq]
     
@@ -238,65 +198,14 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 86400, options[:MaxAge]
   end
 
-  def test_class_parse_args_migration
-    options = ActionMailer::ARSendmail.process_args []
-    deny_includes options, :Migration
-
-    argv = %w[--create-migration]
-    
-    options = ActionMailer::ARSendmail.process_args argv
-
-    assert_equal true, options[:Migrate]
-  end
-
-  def test_class_parse_args_model
-    options = ActionMailer::ARSendmail.process_args []
-    deny_includes options, :Model
-
-    argv = %w[--create-model]
-    
-    options = ActionMailer::ARSendmail.process_args argv
-
-    assert_equal true, options[:Model]
-  end
-
   def test_class_parse_args_no_config_environment
     $".delete 'config/environment.rb'
 
-    out, err = util_capture do
-      assert_raise SystemExit do
+    out, err = capture_io do
+      assert_raises SystemExit do
         ActionMailer::ARSendmail.process_args []
       end
     end
-
-  ensure
-    $" << 'config/environment.rb' if @include_c_e
-  end
-
-  def test_class_parse_args_no_config_environment_migrate
-    $".delete 'config/environment.rb'
-
-    out, err = util_capture do
-      ActionMailer::ARSendmail.process_args %w[--create-migration]
-    end
-
-    assert true # count
-
-  ensure
-    $" << 'config/environment.rb' if @include_c_e
-  end
-
-  def test_class_parse_args_no_config_environment_model
-    $".delete 'config/environment.rb'
-
-    out, err = util_capture do
-      ActionMailer::ARSendmail.process_args %w[--create-model]
-    end
-
-    assert true # count
-
-  rescue SystemExit
-    flunk 'Should not exit'
 
   ensure
     $" << 'config/environment.rb' if @include_c_e
@@ -316,38 +225,24 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal true, options[:Once]
   end
 
-  def test_class_parse_args_table_name
-    argv = %w[-t Email]
-    
-    options = ActionMailer::ARSendmail.process_args argv
-
-    assert_equal 'Email', options[:TableName]
-
-    argv = %w[--table-name=Email]
-    
-    options = ActionMailer::ARSendmail.process_args argv
-
-    assert_equal 'Email', options[:TableName]
-  end
-
   def test_class_usage
-    out, err = util_capture do
+    out, err = capture_io do
       assert_raises SystemExit do
         ActionMailer::ARSendmail.usage 'opts'
       end
     end
 
     assert_equal '', out
-    assert_equal "opts\n", err
+    assert_equal "opts\n", strip_log_prefix(err)
 
-    out, err = util_capture do
+    out, err = capture_io do
       assert_raises SystemExit do
         ActionMailer::ARSendmail.usage 'opts', 'hi'
       end
     end
 
     assert_equal '', out
-    assert_equal "hi\n\nopts\n", err
+    assert_equal "hi\n\nopts\n", strip_log_prefix(err)
   end
 
   def test_cleanup
@@ -357,12 +252,12 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     e3 = Email.create :mail => 'body', :to => 'to', :from => 'from'
     e3.last_send_attempt = Time.now
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.cleanup
     end
 
     assert_equal '', out
-    assert err.index("expired 1 emails from the queue\n")
+    assert_equal "expired 1 emails from the queue\n", strip_log_prefix(err)
     assert_equal 2, Email.records.length
 
     assert_equal [e1, e2], Email.records
@@ -375,7 +270,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     @sm.max_age = 0
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.cleanup
     end
 
@@ -383,28 +278,10 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 2, Email.records.length
   end
 
-  def test_context
-    email = Email.create :mail => 'body', :to => 'to', :from => 'from', :context => 'lemon'
-
-    out, err = util_capture do
-      @sm.deliver [email]
-    end
-
-    assert err.index('[lemon]')
-    
-    email = Email.create :mail => 'body', :to => 'to', :from => 'from', :context => ''
-
-    out, err = util_capture do
-      @sm.deliver [email]
-    end
-
-    assert !err.index('[]')
-  end    
-
   def test_deliver
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email]
     end
 
@@ -414,7 +291,28 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 0, Net::SMTP.reset_called, 'Reset connection on SyntaxError'
 
     assert_equal '', out
-    assert err.index("sent email 00000000001 from from to to: \"queued\"\n")
+    assert_equal "sent email 00000000001 from from to to: \"queued\"\n", strip_log_prefix(err)
+  end
+
+  def test_log_header_setting
+    email = Email.create :mail => "Mailer: JunkMail 1.0\r\nX-Track: 7890\r\n\r\nbody", :to => 'to', :from => 'from'
+    @sm.log_header = 'X-Track'
+    out, err = capture_io do
+      @sm.deliver [email]
+    end
+
+    assert_equal 1, Net::SMTP.deliveries.length
+    assert_equal 0, Email.records.length
+    assert_equal 0, Net::SMTP.reset_called, 'Reset connection on SyntaxError'
+
+    assert_equal '', out
+    assert_equal "sent email 00000000001 [7890] from from to to: \"queued\"\n", strip_log_prefix(err)
+  end
+
+  def test_deliver_not_called_when_no_emails
+    sm = ActionMailer::ARSendmail.new({:Once => true})
+    sm.expects(:deliver).never
+    sm.run
   end
 
   def test_deliver_auth_error
@@ -428,7 +326,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email]
     end
 
@@ -440,21 +338,20 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal [60], @sm.slept
 
     assert_equal '', out
-    assert err.index("authentication error, retrying: try again\n")
+    assert_equal "authentication error, retrying: try again\n", strip_log_prefix(err)
   end
 
   def test_deliver_auth_error_recover
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
     @sm.failed_auth_count = 1
 
-    out, err = util_capture do @sm.deliver [email] end
+    out, err = capture_io do @sm.deliver [email] end
 
     assert_equal 0, @sm.failed_auth_count
     assert_equal 1, Net::SMTP.deliveries.length
   end
 
   def test_deliver_auth_error_twice
-    email = Email.create :mail => 'body', :to => 'to', :from => 'from'
     Net::SMTP.on_start do
       e = Net::SMTPAuthenticationError.new 'try again'
       e.set_backtrace %w[one two three]
@@ -463,30 +360,16 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     @sm.failed_auth_count = 1
 
-    out, err = util_capture do
-      assert_raise Net::SMTPAuthenticationError do
-        @sm.deliver [email]
+    out, err = capture_io do
+      assert_raises Net::SMTPAuthenticationError do
+        @sm.deliver []
       end
     end
 
     assert_equal 2, @sm.failed_auth_count
-    assert err.index("authentication error, giving up: try again\n")
+    assert_equal "authentication error, giving up: try again\n", strip_log_prefix(err)
   end
 
-  def test_deliver_no_auth_without_emails
-    Net::SMTP.on_start do
-      e = Net::SMTPAuthenticationError.new 'no throw'
-      e.set_backtrace %w[one two three]
-      raise e
-    end
-
-    out, err = util_capture do
-      @sm.deliver []
-    end
-    assert_equal '', err, "authentication attempt without any emails to send"
-    assert_equal 0, Net::SMTP.deliveries.length
-  end
-  
   def test_deliver_4xx_error
     Net::SMTP.on_send_message do
       e = Net::SMTPSyntaxError.new 'try again'
@@ -498,7 +381,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email]
     end
 
@@ -508,7 +391,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 1, Net::SMTP.reset_called, 'Reset connection on SyntaxError'
 
     assert_equal '', out
-    assert err.index("error sending email 1: \"try again\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\n")
+    assert_equal "error sending email 1: \"try again\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\n", strip_log_prefix(err)
   end
 
   def test_deliver_5xx_error
@@ -522,7 +405,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email]
     end
 
@@ -531,7 +414,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 1, Net::SMTP.reset_called, 'Reset connection on SyntaxError'
 
     assert_equal '', out
-    assert err.index("5xx error sending email 1, removing from queue: \"unknown recipient\"(Net::SMTPFatalError):\n\tone\n\ttwo\n\tthree\n")
+    assert_equal "5xx error sending email 1, removing from queue: \"unknown recipient\"(Net::SMTPFatalError):\n\tone\n\ttwo\n\tthree\n", strip_log_prefix(err)
   end
 
   def test_deliver_errno_epipe
@@ -543,7 +426,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email]
     end
 
@@ -567,7 +450,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email]
     end
 
@@ -578,7 +461,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal [60], @sm.slept
 
     assert_equal '', out
-    assert err.index("server too busy, sleeping 60 seconds\n")
+    assert_equal "server too busy, sleeping 60 seconds\n", strip_log_prefix(err)
   end
 
   def test_deliver_syntax_error
@@ -594,7 +477,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     email1 = Email.create :mail => 'body', :to => 'to', :from => 'from'
     email2 = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email1, email2]
     end
 
@@ -604,9 +487,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_operator now, :<=, Email.records.first.last_send_attempt
 
     assert_equal '', out
-
-    assert err.index("error sending email 1: \"blah blah blah\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\n")
-    assert err.index("sent email 00000000002 from from to to: \"queued\"\n")
+    assert_equal "error sending email 1: \"blah blah blah\"(Net::SMTPSyntaxError):\n\tone\n\ttwo\n\tthree\nsent email 00000000002 from from to to: \"queued\"\n", strip_log_prefix(err)
   end
 
   def test_deliver_timeout
@@ -620,7 +501,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
 
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.deliver [email]
     end
 
@@ -630,26 +511,26 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal 1, Net::SMTP.reset_called, 'Reset connection on Timeout'
 
     assert_equal '', out
-    assert err.index("error sending email 1: \"timed out\"(Timeout::Error):\n\tone\n\ttwo\n\tthree\n")
+    assert_equal "error sending email 1: \"timed out\"(Timeout::Error):\n\tone\n\ttwo\n\tthree\n", strip_log_prefix(err)
   end
 
   def test_do_exit
-    out, err = util_capture do
-      assert_raise SystemExit do
+    out, err = capture_io do
+      assert_raises SystemExit do
         @sm.do_exit
       end
     end
 
     assert_equal '', out
-    assert err.index("caught signal, shutting down\n")
+    assert_equal "caught signal, shutting down\n", strip_log_prefix(err)
   end
 
   def test_log
-    out, err = util_capture do
+    out, err = capture_io do
       @sm.log 'hi'
     end
 
-    assert err.index("hi\n")
+    assert_equal "hi\n", strip_log_prefix(err)
   end
 
   def test_find_emails
@@ -668,14 +549,14 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
     found_emails = []
 
-    out, err = util_capture do
+    out, err = capture_io do
       found_emails = @sm.find_emails
     end
 
     assert_equal emails, found_emails
 
     assert_equal '', out
-    assert err.index("found 3 emails to send\n")
+    assert_equal "found 3 emails to send\n", strip_log_prefix(err)
   end
 
   def test_smtp_settings
@@ -689,4 +570,3 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
   end
 
 end
-

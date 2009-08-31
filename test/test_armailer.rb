@@ -1,20 +1,13 @@
-require 'test/unit'
-require 'action_mailer'
-require 'action_mailer/ar_mailer'
+require File.expand_path(File.dirname(__FILE__) + '/test_helper')
 
-##
-# Pretend mailer
-
-class Mailer < ActionMailer::ARMailer
+class Mailer < ActionMailer::Base
+  self.delivery_method = :activerecord
 
   def mail
     @mail = Object.new
     def @mail.encoded() 'email' end
     def @mail.from() ['nobody@example.com'] end
     def @mail.destinations() %w[user1@example.com user2@example.com] end
-    def @mail.header_string(header_name, default = nil) 
-      default
-    end  
   end
 
 end
@@ -25,15 +18,15 @@ class TestARMailer < Test::Unit::TestCase
     Mailer.email_class = Email
 
     Email.records.clear
-    Mail.records.clear
+    Newsletter.records.clear
   end
 
   def test_self_email_class_equals
-    Mailer.email_class = Mail
+    Mailer.email_class = Newsletter
 
     Mailer.deliver_mail
 
-    assert_equal 2, Mail.records.length
+    assert_equal 2, Newsletter.records.length
   end
 
   def test_perform_delivery_activerecord

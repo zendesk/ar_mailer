@@ -1,5 +1,5 @@
 require 'net/smtp'
-require 'smtp_tls'
+require 'smtp_tls' unless Net::SMTP.instance_methods.include?("enable_starttls_auto")
 require 'time'
 
 class Net::SMTP
@@ -18,13 +18,7 @@ class Net::SMTP
     attr_reader :send_message_block
     attr_accessor :reset_called
 
-    send :remove_method, :start
-
-  end
-
-  def self.start(*args)
-    @start_block.call if @start_block
-    yield new(nil)
+    # send :remove_method, :start
   end
 
   def self.on_send_message(&block)
@@ -32,7 +26,15 @@ class Net::SMTP
   end
 
   def self.on_start(&block)
-    @start_block = block
+    if block_given?
+      @start_block = block
+    else
+      @start_block
+    end
+  end
+
+  def self.clear_on_start
+    @start_block = nil
   end
 
   def self.reset
@@ -40,6 +42,11 @@ class Net::SMTP
     on_start
     on_send_message
     @reset_called = 0
+  end
+
+  def start(*args)
+    self.class.on_start.call if self.class.on_start
+    yield self
   end
 
   alias test_old_reset reset if instance_methods.include? 'reset'
@@ -68,6 +75,11 @@ class ActionMailer::Base
 
   @server_settings = {}
 
+  class << self
+    cattr_accessor :email_class
+    attr_accessor :delivery_method
+  end
+
   def self.logger
     o = Object.new
     def o.info(arg) end
@@ -82,6 +94,7 @@ class ActionMailer::Base
 
   def self.reset
     server_settings.clear
+    self.email_class = Email
   end
 
   def self.server_settings
@@ -105,7 +118,7 @@ class Email
 
   START = Time.parse 'Thu Aug 10 2006 11:19:48'
 
-  attr_accessor :from, :to, :mail, :last_send_attempt, :created_on, :id, :context
+  attr_accessor :from, :to, :mail, :last_send_attempt, :created_on, :id
 
   @records = []
   @id = 0
@@ -114,7 +127,7 @@ class Email
 
   def self.create(record)
     record = new record[:from], record[:to], record[:mail],
-                 record[:last_send_attempt], record[:context]
+                 record[:last_send_attempt]
     records << record
     return record
   end
@@ -147,14 +160,13 @@ class Email
     records.clear
   end
 
-  def initialize(from, to, mail, last_send_attempt = nil, context = nil)
+  def initialize(from, to, mail, last_send_attempt = nil)
     @from = from
     @to = to
     @mail = mail
     @id = self.class.id += 1
     @created_on = START + @id
     @last_send_attempt = last_send_attempt || 0
-    @context = context
   end
 
   def destroy
@@ -171,7 +183,7 @@ class Email
 
 end
 
-Mail = Email
+Newsletter = Email
 
 class String
   def classify
@@ -183,4 +195,3 @@ class String
   end
 
 end
-
