@@ -514,6 +514,40 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
     assert_equal "error sending email 1: \"timed out\"(Timeout::Error):\n\tone\n\ttwo\n\tthree\n", strip_log_prefix(err)
   end
 
+  def test_deliver_without_locking
+    email = Email.create :mail => 'body', :to => 'to', :from => 'from'
+    assert_equal false, @sm.locking_enabled?
+    out, err = capture_io do
+      @sm.deliver([ email ])
+    end
+
+    assert_equal 1, Net::SMTP.deliveries.length
+  end
+
+  def test_deliver_with_locking_acquired
+    email = Email.create :mail => 'body', :to => 'to', :from => 'from'
+    Email.any_instance.stubs(:lock_with_expirey).returns(true)
+    Email.any_instance.expects(:unlock)
+    assert_equal true, @sm.locking_enabled?
+    out, err = capture_io do
+      @sm.deliver([ email ])
+    end
+
+    assert_equal 1, Net::SMTP.deliveries.length
+  end
+
+  def test_deliver_with_locking_not_acquired
+    email = Email.create :mail => 'body', :to => 'to', :from => 'from'
+    Email.any_instance.stubs(:lock_with_expirey).returns(false)
+    Email.any_instance.expects(:unlock).never
+    assert_equal true, @sm.locking_enabled?
+    out, err = capture_io do
+      @sm.deliver([ email ])
+    end
+
+    assert_equal 0, Net::SMTP.deliveries.length
+  end
+
   def test_do_exit
     out, err = capture_io do
       assert_raises SystemExit do

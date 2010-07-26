@@ -395,6 +395,10 @@ class ActionMailer::ARSendmail
       @failed_auth_count = 0
       until emails.empty? do
         email = emails.shift
+        if locking_enabled?
+          next unless email.lock_with_expirey
+        end
+
         begin
           res = session.send_message email.mail, email.from, email.to
           hdr = ''
@@ -422,6 +426,10 @@ class ActionMailer::ARSendmail
                 [email.id, e.message, e.class, e.backtrace.join("\n\t")]
           session.reset
         end
+
+        if locking_enabled?
+          email.unlock
+        end
       end
     end
   rescue Net::SMTPAuthenticationError => e
@@ -435,6 +443,10 @@ class ActionMailer::ARSendmail
     sleep delay
   rescue Net::SMTPServerBusy, SystemCallError, OpenSSL::SSL::SSLError
     # ignore SMTPServerBusy/EPIPE/ECONNRESET from Net::SMTP.start's ensure
+  end
+
+  def locking_enabled?
+    @locking_enabled ||= ActionMailer::Base.email_class.instance_methods.include?('lock_with_expirey')
   end
 
   ##
