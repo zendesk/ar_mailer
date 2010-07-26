@@ -2,11 +2,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{zendesk-ar_mailer}
-  s.version = "2.1.5"
+  s.version = "2.1.6"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Eric Hodel", "Adam Meehan", "Morten Primdahl"]
-  s.date = %q{2009-12-14}
+  s.date = %q{2010-07-26}
   s.default_executable = %q{ar_sendmail}
   s.description = %q{Even delivering email to the local machine may take too long when you have to send hundreds of messages.  ar_mailer allows you to store messages into the database for later delivery by a separate process, ar_sendmail.}
   s.email = %q{adam.meehan@gmail.com}
@@ -17,7 +17,7 @@ Gem::Specification.new do |s|
   s.rdoc_options = ["--main", "README.rdoc"]
   s.require_paths = ["lib"]
   s.rubyforge_project = %q{seattlerb}
-  s.rubygems_version = %q{1.3.5}
+  s.rubygems_version = %q{1.3.7}
   s.summary = %q{A two-phase delivery agent for ActionMailer}
   s.test_files = ["test/test_armailer.rb", "test/test_arsendmail.rb"]
 
@@ -25,7 +25,7 @@ Gem::Specification.new do |s|
     current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
     s.specification_version = 3
 
-    if Gem::Version.new(Gem::RubyGemsVersion) >= Gem::Version.new('1.2.0') then
+    if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
     else
     end
   else
