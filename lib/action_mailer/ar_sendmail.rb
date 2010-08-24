@@ -396,7 +396,7 @@ class ActionMailer::ARSendmail
       until emails.empty? do
         email = emails.shift
         if locking_enabled?
-          next unless email.lock_with_expirey
+          next unless email.lock_with_expiry
         end
 
         begin
@@ -446,7 +446,7 @@ class ActionMailer::ARSendmail
   end
 
   def locking_enabled?
-    @locking_enabled ||= ActionMailer::Base.email_class.instance_methods.include?('lock_with_expirey')
+    @locking_enabled ||= ActionMailer::Base.email_class.instance_methods.include?('lock_with_expiry')
   end
 
   ##
@@ -465,10 +465,18 @@ class ActionMailer::ARSendmail
   def find_emails
     options = { :conditions => ['last_send_attempt < ?', Time.now.to_i - 300] }
     options[:limit] = batch_size unless batch_size.nil?
-    mail = ActionMailer::Base.email_class.find :all, options
+    mail = email_finder(options)
 
     log "found #{mail.length} emails to send"
     mail
+  end
+
+  def email_finder(options)
+    if locking_enabled?
+      ActionMailer::Base.email_class.unlocked.all(options)
+    else
+      ActionMailer::Base.email_class.find(:all, options)
+    end
   end
 
   ##
