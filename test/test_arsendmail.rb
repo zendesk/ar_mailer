@@ -526,7 +526,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
   def test_deliver_with_locking_acquired
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
-    Email.any_instance.stubs(:lock_with_expirey).returns(true)
+    Email.any_instance.stubs(:lock_with_expiry).returns(true)
     Email.any_instance.expects(:unlock)
     assert_equal true, @sm.locking_enabled?
     out, err = capture_io do
@@ -538,7 +538,7 @@ Last send attempt: Thu Aug 10 11:40:05 %s 2006
 
   def test_deliver_with_locking_not_acquired
     email = Email.create :mail => 'body', :to => 'to', :from => 'from'
-    Email.any_instance.stubs(:lock_with_expirey).returns(false)
+    Email.any_instance.stubs(:lock_with_expiry).returns(false)
     Email.any_instance.expects(:unlock).never
     assert_equal true, @sm.locking_enabled?
     out, err = capture_io do
