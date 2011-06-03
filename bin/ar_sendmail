@@ -1,6 +1,18 @@
 #!/usr/bin/env ruby
 
-require 'action_mailer/ar_sendmail'
+environment_path = ENV.fetch('COURIER_CONFIG')
 
-ActionMailer::ARSendmail.run
+require(environment_path)
+require 'convoy'
 
+module Convoy
+  dispatcher = Dispatcher.new(Delivery, :smtp_settings => ::ActionMailer::Base.smtp_settings)
+  dispatcher.queue = Email
+  dispatcher.extend(Extensions::Delay)
+  dispatcher.extend(Extensions::ExceptionHandling)
+  dispatcher.extend(Extensions::Cleanup)
+  dispatcher.extend(Extensions::ServerSession)
+
+  dispatcher.queue = Email
+  dispatcher.run
+end

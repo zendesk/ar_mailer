@@ -1,4 +1,6 @@
 require File.expand_path(File.dirname(__FILE__) + '/test_helper')
+require 'test/resources/action_mailer'
+require 'action_mailer'
 
 class Mailer < ActionMailer::Base
   self.delivery_method = :activerecord

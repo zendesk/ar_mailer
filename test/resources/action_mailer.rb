@@ -1,5 +1,4 @@
 require 'net/smtp'
-require 'smtp_tls' unless Net::SMTP.instance_methods.include?("enable_starttls_auto")
 require 'time'
 
 class Net::SMTP
@@ -72,11 +71,12 @@ end
 module ActionMailer; end
 
 class ActionMailer::Base
+  include Convoy::ActionMailer::ActiveRecordDelivery
 
   @server_settings = {}
 
   class << self
-    cattr_accessor :email_class
+    #cattr_accessor :email_class
     attr_accessor :delivery_method
   end
 
@@ -179,6 +179,35 @@ class Email
   end
 
   def save
+  end
+
+  def self.retrieve(options)
+    before = options.delete(:before)
+    options[:conditions] = ['last_send_attempt < ?', before.to_i ]
+
+    find(:all, options)
+  end
+
+  def self.cleanup(options)
+    timeout = options.delete(:expired_at)
+    destroy_all([ 'last_send_attempt > 0 and created_on < ?', timeout ])
+  end
+
+  def sent!
+    destroy
+  end
+
+  def canceled!
+    destroy
+  end
+
+  def attempted!
+    self.last_send_attempt = Time.now.to_i
+    save rescue nil
+  end
+
+  def to_message
+    [ mail, from, to ]
   end
 
 end
