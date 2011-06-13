@@ -9,15 +9,11 @@ module Convoy
   end
 
   def self.log(message)
-    $stdout.puts(log_format(message))
+    $stdout.puts(message)
   end
 
   def self.warn(message)
-    $stderr.puts(log_format(message))
-  end
-
-  def self.log_format(message)
-    "ar_sendmail #{Time.now}: #{message}"
+    $stderr.puts(message)
   end
 
 end
