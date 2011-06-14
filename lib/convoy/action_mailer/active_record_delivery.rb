@@ -9,7 +9,10 @@ module Convoy
      end
 
      def perform_delivery_activerecord(mail)
-       mail.destinations.each do |destination|
+       destinations = mail.destinations
+       mail.ready_to_send
+
+       destinations.each do |destination|
          email_class.create :mail => mail.encoded, :to => destination, :from => mail.from.first
        end
      end
