@@ -2,6 +2,8 @@ require 'test_helper'
 require 'test/resources/action_mailer'
 require 'mocha'
 
+module ActionMailer
+end
 class ActionMailer::ARSendmail < Convoy::Dispatcher
   include Convoy::Extensions::Delay
   include Convoy::Extensions::ServerSession
@@ -27,7 +29,7 @@ end
 class TestARSendmail < MiniTest::Unit::TestCase
 
   def setup
-    ActionMailer::Base.reset
+    FakeActionMailer::Base.reset
     Email.reset
     Net::SMTP.reset
 

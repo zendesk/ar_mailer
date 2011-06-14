@@ -1,5 +1,6 @@
 require 'test/unit'
 require 'rubygems'
+require 'bundler/setup'
 require 'minitest/autorun'
 require 'ruby-debug'
 

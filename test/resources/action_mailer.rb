@@ -67,10 +67,9 @@ end
 
 ##
 # Stub for ActionMailer::Base
+module FakeActionMailer; end
 
-module ActionMailer; end
-
-class ActionMailer::Base
+class FakeActionMailer::Base
   include Convoy::ActionMailer::ActiveRecordDelivery
 
   @server_settings = {}
@@ -110,7 +109,6 @@ class ActionMailer::Base
   end
 
 end
-
 ##
 # Stub for an ActiveRecord model
 
