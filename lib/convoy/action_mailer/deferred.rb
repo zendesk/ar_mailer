@@ -19,6 +19,8 @@ module Convoy
         RecordEncoder
       end
 
+      attr_reader :errors, :params
+
       def initialize(params)
         @params = params
         @params.symbolize_keys!
@@ -49,6 +51,19 @@ module Convoy
         params[:arguments]
       end
 
+      def attributes
+        { :mailer_name => mailer_name, :method_id => method_id, :arguments => arguments }
+      end
+
+      def valid?
+        @errors = attributes.map do |name, value|
+          "#{name} can't be nil" if value.nil?
+        end
+        @errors.compact!
+
+        @errors.empty?
+      end
+
       def to_json(options = {})
         ActiveSupport::JSON.encode(encoded)
       end
@@ -63,8 +78,6 @@ module Convoy
       end
 
       protected
-
-      attr_reader :params
 
       # Prepare ActiveRecord objects for safe serialization.
       #

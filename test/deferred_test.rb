@@ -54,6 +54,29 @@ class DeferredTest < MiniTest::Unit::TestCase
       assert_equal @deferred, other
     end
 
+    describe 'valid?' do
+
+      it 'is false when :mailer_name, :method_id or :arguments are missing' do
+        @deferred.params.delete(:mailer_name)
+        assert_equal false, @deferred.valid?
+      end
+
+      it 'is true when :mailer_name, :method_id, and :arguments are all present' do
+        assert_equal true, @deferred.valid?
+      end
+
+      it 'populates errors' do
+        assert_equal nil, @deferred.errors
+        @deferred.valid?
+        assert_equal [], @deferred.errors
+
+        @deferred.params.delete(:mailer_name)
+        @deferred.valid?
+        assert_equal [ "mailer_name can't be nil" ], @deferred.errors
+      end
+
+    end
+
     describe 'to_json' do
 
       it 'converts ActiveRecord objects into an easily deserializable form' do
