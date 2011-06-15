@@ -34,7 +34,7 @@ class EnqueableTest < MiniTest::Unit::TestCase
       assert_equal [ 'Buddhy' ],    deferred.arguments
 
       deferred = Convoy::ActionMailer::Deferred.new(:mailer_name => 'EnqueableTest::EnqueableMailer', :method_id => 'welcome', :arguments => [ 'Buddhy' ] )
-      assert_equal [ { :deferred => deferred } ], @queue
+      assert_equal [ deferred ], @queue
     end
 
   end

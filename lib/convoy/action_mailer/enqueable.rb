@@ -20,7 +20,7 @@ module Convoy
 
       def enqueue(method_id, arguments)
         deferred = Deferred.new(:mailer_name => name, :method_id => method_id, :arguments => arguments)
-        queue.enqueue(:deferred => deferred)
+        queue.enqueue(deferred)
         deferred
       end
 
