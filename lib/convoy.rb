@@ -3,6 +3,7 @@ module Convoy
   autoload :Delivery,     'convoy/delivery'
   autoload :Dispatcher,   'convoy/dispatcher'
   autoload :Extensions,   'convoy/extensions'
+  autoload :Queue,        'convoy/queue'
 
   module SMTP
     autoload :Server, 'convoy/smtp/server'
