@@ -33,13 +33,12 @@ module Convoy
 
         def perform
           log_headers
-          log "sender       #{sender}"
-          log "destinations #{destinations}"
+          log "sender: #{sender}"
+          log "destinations: #{destinations}"
 
-          log "establishing SMTP connection"
           smtp.start(*settings.values_at(:domain, :user_name, :password, :authentication)) do |session|
             response = session.send_message(message, sender, destinations)
-            log "done #{response}"
+            log "done #{response.inspect}"
           end
         rescue Exception => e
           log "failed #{e.message}"
@@ -73,11 +72,11 @@ module Convoy
         end
 
         def log_headers
-          log "#{log_header} [#{mail[log_header]}]" unless log_header.nil?
+          log "#{log_header}: [#{mail[log_header]}]" unless log_header.nil?
         end
 
         def log(message)
-          logger.info("#{mail.message_id}: #{message}")
+          logger.info("#{mail.message_id} #{message}")
         end
 
         def enable_tls?

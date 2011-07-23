@@ -117,7 +117,7 @@ class LoggedSMTPDeliveryTest < MiniTest::Unit::TestCase
     it 'logs with the mail message id' do
       @delivery.log 'hello'
 
-      assert_equal '<12345@example.com>: hello', @log.string
+      assert_equal '<12345@example.com> hello', @log.string
     end
 
     it 'logs headers when the log header is provided' do
@@ -128,7 +128,7 @@ class LoggedSMTPDeliveryTest < MiniTest::Unit::TestCase
       @delivery.mail['X-Delivery-Context'] = 'hello-33'
       @delivery.log_headers
 
-      assert_equal '<12345@example.com>: X-Delivery-Context [hello-33]', @log.string
+      assert_equal '<12345@example.com> X-Delivery-Context: [hello-33]', @log.string
     end
 
     it 'sends the mail' do
