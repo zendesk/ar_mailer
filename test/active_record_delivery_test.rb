@@ -60,6 +60,12 @@ class ActiveRecordDeliveryTest < MiniTest::Unit::TestCase
       end
     end
 
+    it 'retains the BCC after delivery' do
+      assert_equal [ 'bcc@example.com' ], @mail.bcc
+      @mailer.perform_delivery_activerecord(@mail)
+      assert_equal [ 'bcc@example.com' ], @mail.bcc
+    end
+
   end
 
 end

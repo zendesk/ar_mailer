@@ -9,12 +9,15 @@ module Convoy
      end
 
      def perform_delivery_activerecord(mail)
+       original_bcc = mail.bcc
        destinations = mail.destinations
-       mail.bcc = nil
+       mail.bcc     = nil
 
        destinations.each do |destination|
          email_class.create :mail => mail.encoded, :to => destination, :from => mail.from.first
        end
+     ensure
+       mail.bcc = original_bcc
      end
 
     end
