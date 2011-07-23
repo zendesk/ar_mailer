@@ -77,6 +77,20 @@ class DeferredTest < MiniTest::Unit::TestCase
 
     end
 
+    describe 'validate!' do
+
+      it 'raises an error when invalid' do
+        @deferred.params.delete(:mailer_name)
+        assert_equal false, @deferred.valid?
+        assert_raises(Convoy::ActionMailer::Deferred::Invalid) { @deferred.validate! }
+      end
+
+      it 'does not raise an error when valid' do
+        assert_equal true, @deferred.valid?
+        assert @deferred.validate!
+      end
+    end
+
     describe 'to_json' do
 
       it 'converts ActiveRecord objects into an easily deserializable form' do

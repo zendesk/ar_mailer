@@ -4,6 +4,8 @@ require 'active_support'
 module Convoy
   module ActionMailer
     class Deferred
+      class Invalid < ArgumentError
+      end
 
       def self.from_json(params)
         from_hash(ActiveSupport::JSON.decode(params))
@@ -53,6 +55,10 @@ module Convoy
 
       def attributes
         { :mailer_name => mailer_name, :method_id => method_id, :arguments => arguments }
+      end
+
+      def validate!
+        valid? || raise(Invalid.new("Deferred mailer is invalid: #{errors.inspect}"))
       end
 
       def valid?
