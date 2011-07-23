@@ -52,6 +52,7 @@ module Convoy
 
         def message
           original_bcc = mail.bcc
+          mail.bcc     = nil
           mail.encoded
         ensure
           mail.bcc = original_bcc

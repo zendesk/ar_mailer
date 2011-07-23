@@ -39,13 +39,17 @@ class LoggedSMTPDeliveryTest < MiniTest::Unit::TestCase
       {}
     end
 
+    def smtp_settings
+      {}
+    end
+
     def logger
       Logger.new(StringIO.new)
     end
 
   end
 
-  describe 'deliverying via actionmailer' do
+  describe 'delivering via actionmailer' do
     before do
       Net::SMTP.reset
       FakeActionMailer::Base.reset
@@ -131,11 +135,12 @@ class LoggedSMTPDeliveryTest < MiniTest::Unit::TestCase
       @mail.from = 'me@example.com'
       @mail.to   = 'you@example.com'
       @mail.cc   = 'cc@example.com'
+      @mail.bcc  = 'bcc@example.com'
       @mail.body = 'hello'
       message = [
         "From: me@example.com\r\nTo: you@example.com\r\nCc: cc@example.com\r\nMessage-Id: <12345@example.com>\r\n\r\nhello",
         "me@example.com",
-        ["you@example.com", "cc@example.com"]
+        ["you@example.com", "cc@example.com", "bcc@example.com"]
       ]
       @delivery.perform
 
@@ -143,6 +148,7 @@ class LoggedSMTPDeliveryTest < MiniTest::Unit::TestCase
     end
 
     it 'does not include BCC addresses in the message' do
+      @mail.bcc = 'bcc@example.com'
       assert_equal false, @delivery.message.include?('bcc@example.com')
     end
 
