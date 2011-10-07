@@ -34,7 +34,7 @@ module Convoy
         def perform
           log_headers
           log "sender: #{sender}"
-          log "destinations: #{destinations}"
+          log "destinations: #{destinations.inspect}"
 
           smtp.start(*settings.values_at(:domain, :user_name, :password, :authentication)) do |session|
             response = session.send_message(message, sender, destinations)
